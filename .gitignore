@@ -32,5 +32,5 @@ pnpm-debug.log*
 backend/main
 backend/bingo-backend
 
-# Database (keep structure, ignore data)
-backend/data/database.json
+# Database
+backend/data
