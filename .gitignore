@@ -3,6 +3,8 @@
 # Frontend
 frontend/node_modules
 frontend/dist
+frontend/yarn.lock
+frontend/.eslintrc*
 
 # Backend
 backend/main
@@ -34,3 +36,4 @@ backend/bingo-backend
 
 # Database
 backend/data
+frontend/yarn.lock

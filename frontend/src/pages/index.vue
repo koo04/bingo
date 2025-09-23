@@ -55,14 +55,6 @@
               </div>
               <div class="d-flex align-right">
                 <v-btn
-                  color="info"
-                  variant="outlined"
-                  to="/admin"
-                  prepend-icon="mdi-shield-account"
-                >
-                  Admin Panel
-                </v-btn>
-                <v-btn
                   color="error"
                   variant="outlined"
                   @click="store.logout"
@@ -237,6 +229,7 @@
       </div>
     </div>
   </v-container>
+  <v-fab class="position-fixed bottom-4 right-4" to="/admin" icon="mdi-shield-account" variant="tonal"></v-fab>
 </template>
 
 <script setup>
