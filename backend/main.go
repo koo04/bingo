@@ -25,7 +25,7 @@ var (
 	discordOAuth = &oauth2.Config{
 		ClientID:     cmp.Or(os.Getenv("DISCORD_CLIENT_ID"), ""),
 		ClientSecret: cmp.Or(os.Getenv("DISCORD_CLIENT_SECRET"), ""),
-		RedirectURL:  cmp.Or(os.Getenv("DISCORD_REDIRECT_URL"), "http://localhost:3000/auth/callback"),
+		RedirectURL:  fmt.Sprintf("%s/auth/callback", cmp.Or(os.Getenv("FRONTEND_URL"), "http://localhost:3000")),
 		Scopes:       []string{"identify"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://discord.com/api/oauth2/authorize",
