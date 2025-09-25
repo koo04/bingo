@@ -1,73 +1,6 @@
 <template>
   <v-container fluid class="fill-height">
-    <!-- Loading State -->
-    <v-row v-if="store.loading" justify="center" align="center" class="fill-height">
-      <v-col cols="auto">
-        <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
-        <div class="text-center mt-4">Loading...</div>
-      </v-col>
-    </v-row>
-
-    <!-- Login State -->
-    <v-row v-else-if="!store.isAuthenticated" justify="center" align="center" class="fill-height">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="pa-6 text-center">
-          <v-card-title class="text-h4 mb-4">
-            🎯 Bingo Game
-          </v-card-title>
-          <v-card-text>
-            <p class="text-body-1 mb-6">
-              Welcome to the Bingo Game! Sign in with Discord to create and play bingo cards.
-            </p>
-            <v-btn
-              color="primary"
-              size="large"
-              block
-              @click="store.loginWithDiscord"
-              prepend-icon="mdi-discord"
-            >
-              Sign in with Discord
-            </v-btn>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Authenticated State -->
-    <div v-else>
-      <!-- Header -->
-      <v-row>
-        <v-col cols="12">
-          <v-card class="mb-4">
-            <v-card-title class="d-flex justify-space-between align-center">
-              <div class="d-flex align-center">
-                <v-avatar size="40" class="mr-3">
-                  <v-img
-                    v-if="store.user?.avatar"
-                    :src="`https://cdn.discordapp.com/avatars/${store.user.discord_id}/${store.user.avatar}.png`"
-                  ></v-img>
-                  <v-icon v-else>mdi-account</v-icon>
-                </v-avatar>
-                <div>
-                  <div class="text-h6">Welcome, {{ store.user?.username }}!</div>
-                  <div class="text-caption">Ready to play bingo?</div>
-                </div>
-              </div>
-              <div class="d-flex align-right">
-                <v-btn
-                  color="error"
-                  variant="outlined"
-                  @click="store.logout"
-                  append-icon="mdi-logout"
-                >
-                  Logout
-                </v-btn>
-              </div>
-            </v-card-title>
-          </v-card>
-        </v-col>
-      </v-row>
-
+    <div>
       <!-- Error Display -->
       <v-row v-if="store.error">
         <v-col cols="12">
@@ -83,25 +16,6 @@
 
       <!-- No Current Card State -->
       <v-row v-if="!store.hasCurrentCard" justify="center">
-        <v-col cols="12" sm="8" md="6">
-          <v-card class="text-center pa-6">
-            <v-card-title class="text-h5 mb-4">
-              No Bingo Card Yet
-            </v-card-title>
-            <v-card-text>
-              <p class="mb-6">Generate your first bingo card to start playing!</p>
-              <v-btn
-                color="primary"
-                size="large"
-                @click="generateCard"
-                :loading="store.loading"
-                prepend-icon="mdi-cards"
-              >
-                Generate New Bingo Card
-              </v-btn>
-            </v-card-text>
-          </v-card>
-        </v-col>
       </v-row>
 
       <!-- Bingo Card Display -->
@@ -229,7 +143,6 @@
       </div>
     </div>
   </v-container>
-  <v-fab class="position-fixed bottom-4 right-4" to="/admin" icon="mdi-shield-account" variant="tonal"></v-fab>
 </template>
 
 <script setup>
@@ -251,24 +164,10 @@ const winCount = computed(() => {
 })
 
 onMounted(async () => {
-  // Check for token in URL (from Discord OAuth callback)
-  const urlParams = new URLSearchParams(window.location.search)
-  const token = urlParams.get('token')
-  
-  if (token) {
-    store.setToken(token)
-    // Clear token from URL
-    window.history.replaceState({}, document.title, window.location.pathname)
-  }
-
-  // Initialize authentication
-  await store.initializeAuth()
-  
-  if (store.isAuthenticated) {
-    await store.fetchBingoCards()
-    if (store.currentCard) {
-      selectedCardId.value = store.currentCard.id
-    }
+  // Fetch bingo cards (user is already authenticated via router guard)
+  await store.fetchBingoCards()
+  if (store.currentCard) {
+    selectedCardId.value = store.currentCard.id
   }
 })
 

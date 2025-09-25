@@ -16,6 +16,10 @@ func generateNewBingoCard(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Not enough bingo items available"})
 	}
 
+	return c.JSON(http.StatusOK, newBingoCard(user))
+}
+
+func newBingoCard(user *User) BingoCard {
 	// Shuffle and select 25 items
 	shuffled := make([]string, len(bingoItems))
 	copy(shuffled, bingoItems)
@@ -50,5 +54,5 @@ func generateNewBingoCard(c echo.Context) error {
 	db.BingoCards = append(db.BingoCards, card)
 	saveDatabase()
 
-	return c.JSON(http.StatusOK, card)
+	return card
 }

@@ -16,5 +16,10 @@ func getUserBingoCards(c echo.Context) error {
 		}
 	}
 
+	if len(userCards) == 0 {
+		c := newBingoCard(user)
+		userCards = append(userCards, c)
+	}
+
 	return c.JSON(http.StatusOK, userCards)
 }

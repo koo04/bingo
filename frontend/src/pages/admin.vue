@@ -195,7 +195,7 @@ onMounted(async () => {
   await checkAdminAccess()
   if (isAdmin.value) {
     await loadAdminData()
-    
+
     // Setup WebSocket
     websocketService.connect()
     websocketService.on('initial_state', handleWebSocketMessage)

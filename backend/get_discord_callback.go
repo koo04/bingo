@@ -71,6 +71,6 @@ func handleDiscordCallback(c echo.Context) error {
 	}
 
 	// Redirect to frontend with token
-	frontendURL := cmp.Or(os.Getenv("FRONTEND_URL"), "http://localhost:3000")
+	frontendURL := cmp.Or(os.Getenv("FRONTEND_URL"), "http://localhost:3000/login")
 	return c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf("%s?token=%s", frontendURL, tokenString))
 }
