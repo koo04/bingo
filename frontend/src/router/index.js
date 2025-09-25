@@ -22,42 +22,16 @@ router.beforeEach(async (to, from, next) => {
   console.log(`🚦 ROUTER: Navigating to: ${to.path}, Authenticated: ${store.isAuthenticated}`)
   console.log(`🚦 ROUTER: Current URL: ${window.location.href}`)
   
-  // Special handling for login page with token
+  // Special handling for auth callback page
+  if (to.path === '/auth/callback') {
+    console.log('🚦 ROUTER: Auth callback page, allowing access')
+    next()
+    return
+  }
+  
+  // Special handling for login page
   if (to.path === '/login') {
-    // Check if there's a token in the URL (OAuth callback)
-    const urlParams = new URLSearchParams(window.location.search)
-    const token = urlParams.get('token')
-    
-    if (token) {
-      console.log('🚦 ROUTER: Token found in URL, processing immediately')
-      console.log(`🚦 ROUTER: Token (first 20 chars): ${token.substring(0, 20)}...`)
-      
-      // Store the token immediately
-      store.setToken(token)
-      
-      // Clean up URL
-      const cleanUrl = window.location.pathname
-      window.history.replaceState({}, document.title, cleanUrl)
-      console.log('🚦 ROUTER: Token captured and URL cleaned')
-      
-      // Fetch user data
-      try {
-        console.log('🚦 ROUTER: Fetching user data...')
-        await store.fetchUser()
-        console.log('🚦 ROUTER: User data fetched successfully')
-      } catch (error) {
-        console.error('🚦 ROUTER: Failed to fetch user data:', error)
-        // fetchUser already handles logout on error, so just return
-        return
-      }
-      
-      // Redirect to home
-      console.log('🚦 ROUTER: Redirecting to home page')
-      next('/')
-      return
-    }
-    
-    // If already authenticated and no token in URL, redirect to home
+    // If already authenticated, redirect to home
     if (store.isAuthenticated) {
       console.log('🚦 ROUTER: Already authenticated, redirecting to home')
       next('/')

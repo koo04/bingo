@@ -28,6 +28,7 @@ export const useAppStore = defineStore('app', {
     isAuthenticated: (state) => !!state.token,
     hasCurrentCard: (state) => !!state.currentCard,
     isItemGloballyMarked: (state) => (item) => state.globalMarkedItems.includes(item),
+    isAdmin: (state) => state.user?.is_admin || false,
   },
 
   actions: {

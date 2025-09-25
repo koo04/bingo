@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +25,7 @@ var (
 	discordOAuth = &oauth2.Config{
 		ClientID:     cmp.Or(os.Getenv("DISCORD_CLIENT_ID"), ""),
 		ClientSecret: cmp.Or(os.Getenv("DISCORD_CLIENT_SECRET"), ""),
-		RedirectURL:  cmp.Or(os.Getenv("DISCORD_REDIRECT_URL"), "http://localhost:8080/auth/discord/callback"),
+		RedirectURL:  cmp.Or(os.Getenv("DISCORD_REDIRECT_URL"), "http://localhost:3000/auth/callback"),
 		Scopes:       []string{"identify"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://discord.com/api/oauth2/authorize",
@@ -45,6 +46,8 @@ func main() {
 	loadDatabase()
 	loadBingoItems()
 
+	fmt.Printf("discord client id: %s\n", discordOAuth.ClientID)
+
 	e := echo.New()
 
 	// Middleware
@@ -58,7 +61,7 @@ func main() {
 
 	// Routes
 	e.GET("/auth/discord", handleDiscordAuth)
-	e.GET("/auth/discord/callback", handleDiscordCallback)
+	e.POST("/auth/discord/exchange", handleAuthCodeExchange)
 	e.GET("/api/user", getCurrentUser, authMiddleware)
 	e.GET("/api/bingo/new", generateNewBingoCard, authMiddleware)
 	e.GET("/api/bingo/cards", getUserBingoCards, authMiddleware)

@@ -8,6 +8,7 @@ type User struct {
 	Username  string    `json:"username"`
 	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"created_at"`
+	IsAdmin   bool      `json:"is_admin"`
 }
 
 type DiscordUser struct {

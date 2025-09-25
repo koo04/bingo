@@ -58,7 +58,7 @@ const links = [
 ]
 
 const visibleLinks = computed(() => {
-  return links.filter(link => !link.adminOnly || (link.adminOnly && store.isAdmin))
+  return links.filter(link => !link.adminOnly || (link.adminOnly && store.isAuthenticated))
 })
 
 onMounted(() => {
