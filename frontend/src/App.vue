@@ -29,18 +29,12 @@ import { useAppStore } from '@/stores/app'
 const appStore = useAppStore()
 
 onMounted(async () => {
-  console.log('App.vue mounted - starting auth initialization')
-  
-  // Initialize store for global error handling
-  appStore.init()
-  
-  // Initialize authentication
-  await appStore.initializeAuth()
-  console.log('App.vue auth initialization complete')
+  console.log('App.vue mounted')
+  // Load token from localStorage if it exists
+  await appStore.loadTokenFromStorage()
   
   // Initialize WebSocket if authenticated
   if (appStore.isAuthenticated) {
-    console.log('User authenticated, initializing WebSocket')
     appStore.initializeWebSocket()
   }
 })

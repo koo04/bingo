@@ -14,9 +14,8 @@
               color="primary"
               size="large"
               block
-              @click="store.loginWithDiscord"
+              @click="loginWithDiscord"
               prepend-icon="mdi-discord"
-              :loading="store.loading"
             >
               Sign in with Discord
             </v-btn>
@@ -33,40 +32,18 @@ import { useAppStore } from '@/stores/app'
 const store = useAppStore()
 const router = useRouter()
 
-onMounted(async () => {
-  // Check if there's a token in the URL (OAuth callback)
-  const urlParams = new URLSearchParams(window.location.search)
-  const urlToken = urlParams.get('token')
+onMounted(() => {
+  console.log('🔐 LOGIN PAGE: Login page mounted')
+  console.log('🔐 LOGIN PAGE: Current URL:', window.location.href)
+  console.log('🔐 LOGIN PAGE: Authenticated:', store.isAuthenticated)
   
-  if (urlToken) {
-    console.log('🔐 LOGIN: OAuth callback detected on login page')
-    console.log('🔐 LOGIN: Current URL:', window.location.href)
-    
-    // Wait for auth initialization to complete
-    let retries = 0
-    while (retries < 50 && !store.authInitialized) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      retries++
-    }
-    
-    console.log('🔐 LOGIN: Auth initialization complete, authenticated:', store.isAuthenticated)
-    
-    // If authentication was successful, redirect to home immediately
-    if (store.isAuthenticated) {
-      console.log('🔐 LOGIN: Authentication successful, redirecting to home and cleaning URL')
-      // Navigate directly to home, which will clean up the current URL
-      router.replace('/')
-    } else {
-      console.log('🔐 LOGIN: Authentication failed, cleaning up URL')
-      // Only clean up URL if staying on login page
-      const url = new URL(window.location)
-      url.searchParams.delete('token')
-      const cleanUrl = url.pathname + url.search + url.hash
-      window.history.replaceState({}, document.title, cleanUrl)
-      console.log('🔐 LOGIN: URL cleaned up to:', cleanUrl)
-    }
-  }
+  // Token processing is now handled by the router guard
+  // This page should only show if user is not authenticated and there's no token
 })
+
+function loginWithDiscord() {
+  window.location.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/auth/discord`
+}
 </script>
 
 <route lang="yaml">
