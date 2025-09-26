@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
@@ -12,17 +13,46 @@ import (
 func generateNewBingoCard(c echo.Context) error {
 	user := c.Get("user").(*User)
 
-	if len(bingoItems) < 25 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Not enough bingo items available"})
+	// Check if there are any themes available
+	if len(db.Themes) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "No themes available. Please contact an administrator to create themes.",
+		})
 	}
 
-	return c.JSON(http.StatusOK, newBingoCard(user))
+	// Check if there's an active theme
+	if db.ActiveThemeID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "No active theme selected. Please contact an administrator to set an active theme.",
+		})
+	}
+
+	themeItems := getActiveThemeItems()
+	if len(themeItems) < 25 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("Active theme only has %d items (need at least 25). Please contact an administrator to add more items to the theme.", len(themeItems)),
+		})
+	}
+
+	card, err := newBingoCard(user)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, card)
 }
 
-func newBingoCard(user *User) BingoCard {
+func newBingoCard(user *User) (BingoCard, error) {
+	// Get items from active theme
+	themeItems := getActiveThemeItems()
+
+	if len(themeItems) < 25 {
+		return BingoCard{}, fmt.Errorf("insufficient items: need 25, have %d", len(themeItems))
+	}
+
 	// Shuffle and select 25 items
-	shuffled := make([]string, len(bingoItems))
-	copy(shuffled, bingoItems)
+	shuffled := make([]string, len(themeItems))
+	copy(shuffled, themeItems)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
@@ -45,6 +75,7 @@ func newBingoCard(user *User) BingoCard {
 	card := BingoCard{
 		ID:          uuid.New().String(),
 		UserID:      user.ID,
+		ThemeID:     db.ActiveThemeID,
 		Items:       items,
 		MarkedItems: markedItems,
 		CreatedAt:   time.Now(),
@@ -54,5 +85,5 @@ func newBingoCard(user *User) BingoCard {
 	db.BingoCards = append(db.BingoCards, card)
 	saveDatabase()
 
-	return card
+	return card, nil
 }

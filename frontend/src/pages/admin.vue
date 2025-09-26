@@ -9,6 +9,9 @@
         </v-alert>
         
         <div v-if="isAdmin">
+          <!-- Theme Management -->
+          <ThemeManager />
+
           <!-- Bingo Items Control -->
           <v-card class="mb-6">
             <v-card-title>
@@ -101,17 +104,22 @@
         </div>
       </v-col>
     </v-row>
+
+
   </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import websocketService from '@/services/websocket'
+import ThemeManager from '@/components/ThemeManager.vue'
 
-const appStore = useAppStore()
+const store = useAppStore()
 const isAdmin = ref(false)
 const allItems = ref([])
+
+const themes = ref([])
 const markedItems = ref([])
 const playerCards = ref([])
 const users = ref([])
@@ -119,7 +127,7 @@ const loadingItems = ref(new Set())
 
 const checkAdminAccess = async () => {
   try {
-    const response = await appStore.apiCall('/api/admin/check')
+    const response = await store.apiCall('/api/admin/check')
     isAdmin.value = response.is_admin
   } catch (error) {
     console.error('Error checking admin access:', error)
@@ -129,15 +137,16 @@ const checkAdminAccess = async () => {
 
 const loadAdminData = async () => {
   if (!isAdmin.value) return
-
+  
   try {
-    // Load marked items
-    const itemsResponse = await appStore.apiCall('/api/admin/items')
-    allItems.value = itemsResponse.all_items
-    markedItems.value = itemsResponse.marked_items
+    const themes = await store.fetchThemes()
+    themes.value = themes
 
-    // Load player cards
-    const cardsResponse = await appStore.apiCall('/api/admin/cards')
+    const itemsResponse = await store.apiCall('/api/admin/items')
+    markedItems.value = itemsResponse.marked_items
+    allItems.value = itemsResponse.all_items
+
+    const cardsResponse = await store.apiCall('/api/admin/cards')
     playerCards.value = cardsResponse.cards
     users.value = cardsResponse.users
   } catch (error) {
@@ -159,7 +168,7 @@ const toggleItem = async (item) => {
   
   try {
     const endpoint = isItemMarked(item) ? '/api/admin/items/unmark' : '/api/admin/items/mark'
-    await appStore.apiCall(endpoint, 'POST', { item })
+    await store.apiCall(endpoint, 'POST', { item })
     
     // Update local state
     if (isItemMarked(item)) {
@@ -169,7 +178,7 @@ const toggleItem = async (item) => {
     }
   } catch (error) {
     console.error('Error toggling item:', error)
-    appStore.showSnackbar('Error updating item', 'error')
+    store.showSnackbar('Error updating item', 'error')
   } finally {
     loadingItems.value.delete(item)
   }

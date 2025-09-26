@@ -1,13 +1,7 @@
 <template>
   <v-row justify="center">
-    <v-col cols="12" lg="8" xl="6">
+    <v-col cols="12" lg="12" xl="6">
       <v-card>
-        <v-card-title v-if="currentCard?.is_winner" class="text-center text-h4 pa-6">
-          🎉 BINGO 🎉
-        </v-card-title>
-        <v-card-title v-else class="text-center text-h4 pa-6">
-          BINGO
-        </v-card-title>
         <v-card-text class="pa-2">
           <div class="bingo-grid">
             <div

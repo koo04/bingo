@@ -9,9 +9,11 @@ class WebSocketService {
 
   connect() {
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//${window.location.host}/ws`
+      // Use the same base URL as the API, but convert to WebSocket protocol
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+      const wsUrl = apiBaseUrl.replace(/^https?:/, apiBaseUrl.startsWith('https:') ? 'wss:' : 'ws:') + '/ws'
       
+      console.log('Connecting to WebSocket:', wsUrl)
       this.ws = new WebSocket(wsUrl)
       
       this.ws.onopen = () => {
@@ -51,10 +53,15 @@ class WebSocketService {
   }
 
   handleMessage(data) {
+    console.log('WebSocket message received:', data)
     const { type } = data
+    console.log('Message type:', type)
     const callbacks = this.listeners.get(type)
+    console.log('Callbacks for type:', callbacks ? callbacks.length : 0)
     if (callbacks) {
       callbacks.forEach(callback => callback(data))
+    } else {
+      console.warn('No callbacks registered for WebSocket message type:', type)
     }
   }
 

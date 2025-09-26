@@ -1,11 +1,11 @@
 <template>
-  <v-main>
+  <v-app id="inspire">
     <v-app-bar flat>
       <v-container class="mx-auto d-flex align-center justify-center">
         <v-avatar
-          class="me-4 "
+          class="me-4"
           color="grey-darken-1"
-          size="42"
+          size="32"
         >
           <v-img
             v-if="store.user?.avatar"
@@ -28,22 +28,40 @@
           variant="outlined"
           @click="store.logout"
           append-icon="mdi-logout"
+          class="me-4"
+          size="small"
         >
           Logout
         </v-btn>
       </v-container>
     </v-app-bar>
 
-    <!-- Loading State -->
-    <v-row v-if="store.loading" justify="center" align="center" class="fill-height">
-      <v-col cols="auto">
-        <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
-        <div class="text-center mt-4">Loading...</div>
-      </v-col>
-    </v-row>
+    <v-main class="bg-grey-lighten-3">
+      <!-- Loading State -->
+      <v-container v-if="store.loading" class="fill-height">
+        <v-row justify="center" align="center" class="fill-height">
+          <v-col cols="auto">
+            <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
+            <div class="text-center mt-4">Loading...</div>
+          </v-col>
+        </v-row>
+      </v-container>
 
-    <router-view />
-  </v-main>
+      <!-- Main Content Layout -->
+      <v-container v-else>
+        <v-row>
+          <v-col>
+            <v-sheet
+              min-height="70vh"
+              rounded="lg"
+            >
+              <router-view />
+            </v-sheet>
+          </v-col>
+        </v-row>
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
 
 <script setup>

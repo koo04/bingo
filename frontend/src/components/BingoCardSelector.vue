@@ -1,6 +1,6 @@
 <template>
-  <v-row class="mb-4">
-    <v-col cols="12" md="6">
+  <v-row>
+    <v-col cols="12" md="6" lg="4">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-cards</v-icon>

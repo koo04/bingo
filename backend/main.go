@@ -32,8 +32,7 @@ var (
 			TokenURL: "https://discord.com/api/oauth2/token",
 		},
 	}
-	bingoItems []string
-	upgrader   = websocket.Upgrader{
+	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true // Allow connections from any origin
 		},
@@ -44,7 +43,6 @@ var (
 
 func main() {
 	loadDatabase()
-	loadBingoItems()
 
 	fmt.Printf("discord client id: %s\n", discordOAuth.ClientID)
 
@@ -73,6 +71,14 @@ func main() {
 	e.POST("/api/admin/items/mark", markGlobalItem, authMiddleware, adminMiddleware)
 	e.POST("/api/admin/items/unmark", unmarkGlobalItem, authMiddleware, adminMiddleware)
 	e.GET("/api/admin/cards", getAllBingoCards, authMiddleware, adminMiddleware)
+
+	// Theme routes
+	e.GET("/api/themes", getThemes, authMiddleware)
+	e.POST("/api/admin/themes", createTheme, authMiddleware, adminMiddleware)
+	e.PUT("/api/admin/themes/:id", updateTheme, authMiddleware, adminMiddleware)
+	e.DELETE("/api/admin/themes/:id", deleteTheme, authMiddleware, adminMiddleware)
+	e.POST("/api/admin/themes/:id/complete", markThemeComplete, authMiddleware, adminMiddleware)
+	e.POST("/api/admin/themes/active", setActiveTheme, authMiddleware, adminMiddleware)
 
 	// WebSocket endpoint
 	e.GET("/ws", handleWebSocket)
@@ -133,64 +139,14 @@ func loadDatabase() {
 		}
 		saveDatabase()
 	}
+
+	// Themes can be initialized manually via the admin endpoint if needed
 }
 
 func saveDatabase() {
 	os.MkdirAll("data", 0755)
 	data, _ := json.MarshalIndent(db, "", "  ")
 	os.WriteFile("data/database.json", data, 0644)
-}
-
-func loadBingoItems() {
-	data, err := os.ReadFile("data/bingo-items.txt")
-	if err != nil {
-		log.Println("Bingo items file not found, creating sample file")
-		sampleItems := []string{
-			"Someone mentions the weather",
-			"Technical difficulties occur",
-			"Someone is eating on camera",
-			"Pet appears on screen",
-			"Someone forgets to mute",
-			"\"Can you hear me?\" is said",
-			"Someone has virtual background",
-			"Audio feedback happens",
-			"Someone joins late",
-			"Internet connection issues",
-			"Someone drinks coffee",
-			"Phone rings in background",
-			"\"You're on mute\" is said",
-			"Someone waves at camera",
-			"Screen sharing problems",
-			"Someone types loudly",
-			"Background noise interruption",
-			"Someone leaves early",
-			"Technology joke is made",
-			"Someone asks to repeat something",
-			"Video freezes",
-			"Someone multitasks visibly",
-			"Awkward silence occurs",
-			"Someone sneezes or coughs",
-			"Meeting runs over time",
-		}
-
-		os.MkdirAll("data", 0755)
-		content := strings.Join(sampleItems, "\n")
-		os.WriteFile("data/bingo-items.txt", []byte(content), 0644)
-		bingoItems = sampleItems
-		return
-	}
-
-	content := string(data)
-	bingoItems = strings.Split(strings.TrimSpace(content), "\n")
-
-	// Filter out empty lines
-	var filtered []string
-	for _, item := range bingoItems {
-		if strings.TrimSpace(item) != "" {
-			filtered = append(filtered, strings.TrimSpace(item))
-		}
-	}
-	bingoItems = filtered
 }
 
 func authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -260,10 +216,8 @@ func adminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user := c.Get("user").(*User)
 
-		for _, adminID := range db.AdminDiscordIDs {
-			if user.DiscordID == adminID {
-				return next(c)
-			}
+		if slices.Contains(db.AdminDiscordIDs, user.DiscordID) {
+			return next(c)
 		}
 
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Admin access required"})
@@ -283,7 +237,7 @@ func checkAdminAccess(c echo.Context) error {
 func getGlobalMarkedItems(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"marked_items": db.GlobalMarkedItems,
-		"all_items":    bingoItems,
+		"all_items":    getAllThemeItems(),
 	})
 }
 
@@ -297,9 +251,10 @@ func markGlobalItem(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
-	// Check if item exists in bingo items
+	// Check if item exists in theme items
+	themeItems := getAllThemeItems()
 	itemExists := false
-	for _, item := range bingoItems {
+	for _, item := range themeItems {
 		if item == req.Item {
 			itemExists = true
 			break
@@ -411,7 +366,7 @@ func handleWebSocket(c echo.Context) error {
 	}()
 
 	// Send current state
-	ws.WriteJSON(map[string]interface{}{
+	ws.WriteJSON(map[string]any{
 		"type":         "initial_state",
 		"marked_items": db.GlobalMarkedItems,
 	})
@@ -428,11 +383,11 @@ func handleWebSocket(c echo.Context) error {
 }
 
 // Broadcast update to all WebSocket connections
-func broadcastUpdate(eventType, item string) {
+func broadcastUpdate(eventType string, item any) {
 	connMutex.RLock()
 	defer connMutex.RUnlock()
 
-	message := map[string]interface{}{
+	message := map[string]any{
 		"type":  eventType,
 		"item":  item,
 		"cards": db.BingoCards, // Send updated cards
