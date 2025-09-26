@@ -68,12 +68,14 @@ func main() {
 	// Admin routes
 	e.GET("/api/admin/check", checkAdminAccess, authMiddleware)
 	e.GET("/api/admin/items", getGlobalMarkedItems, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/items/mark", markGlobalItem, authMiddleware, adminMiddleware)
+	e.POST("/api/admin/items/mark", markItem, authMiddleware, adminMiddleware)
 	e.POST("/api/admin/items/unmark", unmarkGlobalItem, authMiddleware, adminMiddleware)
 	e.GET("/api/admin/cards", getAllBingoCards, authMiddleware, adminMiddleware)
 
 	// Theme routes
 	e.GET("/api/themes", getThemes, authMiddleware)
+	e.GET("/api/themes/:id/items", getThemeItemsRequest, authMiddleware, adminMiddleware)
+	e.POST("/api/admin/themes/:themeId/items/:itemId/mark", markItem, authMiddleware, adminMiddleware)
 	e.POST("/api/admin/themes", createTheme, authMiddleware, adminMiddleware)
 	e.PUT("/api/admin/themes/:id", updateTheme, authMiddleware, adminMiddleware)
 	e.DELETE("/api/admin/themes/:id", deleteTheme, authMiddleware, adminMiddleware)
@@ -235,16 +237,17 @@ func checkAdminAccess(c echo.Context) error {
 
 // Get globally marked items
 func getGlobalMarkedItems(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	return c.JSON(http.StatusOK, map[string]any{
 		"marked_items": db.GlobalMarkedItems,
 		"all_items":    getAllThemeItems(),
 	})
 }
 
-// Mark global item
-func markGlobalItem(c echo.Context) error {
+// Mark item
+func markItem(c echo.Context) error {
 	var req struct {
-		Item string `json:"item"`
+		ThemeID string `json:"theme_id"`
+		ItemId  string `json:"item_id"`
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -252,34 +255,29 @@ func markGlobalItem(c echo.Context) error {
 	}
 
 	// Check if item exists in theme items
-	themeItems := getAllThemeItems()
-	itemExists := false
+	themeItems := getThemeItems(req.ThemeID)
+
 	for _, item := range themeItems {
-		if item == req.Item {
-			itemExists = true
-			break
+		if item.ID == req.ItemId {
+			goto Found
 		}
 	}
-
-	if !itemExists {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item not found"})
-	}
+	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item not found"})
+Found:
 
 	// Check if already marked
-	for _, markedItem := range db.GlobalMarkedItems {
-		if markedItem == req.Item {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item already marked"})
-		}
+	if slices.Contains(db.GlobalMarkedItems, req.ItemId) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item already marked"})
 	}
 
-	db.GlobalMarkedItems = append(db.GlobalMarkedItems, req.Item)
+	db.GlobalMarkedItems = append(db.GlobalMarkedItems, req.ItemId)
 
 	// Mark this item on all player cards that contain it
 	for i := range db.BingoCards {
 		card := &db.BingoCards[i]
-		for row := 0; row < 5; row++ {
-			for col := 0; col < 5; col++ {
-				if card.Items[row][col] == req.Item {
+		for row := range 5 {
+			for col := range 5 {
+				if card.Items[row][col] == req.ItemId {
 					card.MarkedItems[row][col] = true
 					// Check if this creates a bingo
 					if checkBingo(card.MarkedItems) {
@@ -293,7 +291,7 @@ func markGlobalItem(c echo.Context) error {
 	saveDatabase()
 
 	// Broadcast to all WebSocket connections
-	broadcastUpdate("item_marked", req.Item)
+	broadcastUpdate("item_marked", req.ItemId)
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "marked"})
 }

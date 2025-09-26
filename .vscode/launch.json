@@ -8,9 +8,9 @@
             "name": "backend",
             "type": "go",
             "request": "launch",
-            "mode": "debug",
-            "cwd": "${workspaceFolder}/backend",
-            "program": "${workspaceFolder}/backend",
+            "mode": "auto",
+            "cwd": "${workspaceFolder}",
+            "program": "./backend/",
             "envFile": "${workspaceFolder}/.env",
         },
         {

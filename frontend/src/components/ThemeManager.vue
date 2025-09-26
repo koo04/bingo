@@ -10,7 +10,7 @@
       </v-card-title>
       
       <v-card-text>
-        <div v-if="store.themes.length === 0" class="text-center py-8">
+        <div v-if="themes.length === 0" class="text-center py-8">
           <v-icon size="64" color="grey" class="mb-4">mdi-palette-outline</v-icon>
           <div class="text-h6 mb-2">No Themes Available</div>
           <div class="text-body-2 text-medium-emphasis mb-4">
@@ -24,7 +24,7 @@
         <div v-else>
           <v-row>
             <v-col
-              v-for="theme in store.themes"
+              v-for="theme in themes"
               :key="theme.id"
               cols="12"
               md="6"
@@ -237,6 +237,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
+
+defineProps({
+  themes: {
+    type: Array,
+    required: true
+  }
+})
 
 const store = useAppStore()
 

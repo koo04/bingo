@@ -51,7 +51,7 @@ func newBingoCard(user *User) (BingoCard, error) {
 	}
 
 	// Shuffle and select 25 items
-	shuffled := make([]string, len(themeItems))
+	shuffled := make([]Item, len(themeItems))
 	copy(shuffled, themeItems)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
@@ -64,7 +64,7 @@ func newBingoCard(user *User) (BingoCard, error) {
 		items[i] = make([]string, 5)
 		markedItems[i] = make([]bool, 5)
 		for j := range items[i] {
-			items[i][j] = shuffled[i*5+j]
+			items[i][j] = shuffled[i*5+j].Name
 		}
 	}
 

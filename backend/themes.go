@@ -14,9 +14,14 @@ type Theme struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Items       []string  `json:"items"`
+	Items       []Item    `json:"items"`
 	IsComplete  bool      `json:"is_complete"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+type Item struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Get all themes
@@ -75,7 +80,7 @@ func setActiveTheme(c echo.Context) error {
 	// Broadcast theme change to all connected clients
 	broadcastUpdate("theme_changed", db.ActiveThemeID)
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	return c.JSON(http.StatusOK, map[string]any{
 		"message":         "Active theme updated",
 		"active_theme_id": db.ActiveThemeID,
 	})
@@ -89,9 +94,9 @@ func createTheme(c echo.Context) error {
 	}
 
 	var request struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Items       []string `json:"items"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Items       []Item `json:"items"`
 	}
 
 	if err := c.Bind(&request); err != nil {
@@ -128,10 +133,10 @@ func updateTheme(c echo.Context) error {
 	themeID := c.Param("id")
 
 	var request struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Items       []string `json:"items"`
-		IsComplete  *bool    `json:"is_complete,omitempty"` // Pointer to allow null/undefined values
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Items       []Item `json:"items"`
+		IsComplete  *bool  `json:"is_complete,omitempty"` // Pointer to allow null/undefined values
 	}
 
 	if err := c.Bind(&request); err != nil {
@@ -262,15 +267,41 @@ func markThemeComplete(c echo.Context) error {
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "Theme not found"})
 }
 
+func getThemeItemsRequest(c echo.Context) error {
+	themeID := c.Param("id")
+
+	// Find the theme
+	for _, theme := range db.Themes {
+		if theme.ID == themeID {
+			return c.JSON(http.StatusOK, map[string]any{
+				"items":        theme.Items,
+				"marked_items": db.GlobalMarkedItems,
+			})
+		}
+	}
+
+	return c.JSON(http.StatusNotFound, map[string]string{"error": "Theme not found"})
+}
+
+func getThemeItems(themeId string) []Item {
+	for _, theme := range db.Themes {
+		if theme.ID == themeId {
+			return theme.Items
+		}
+	}
+
+	return []Item{}
+}
+
 // Get active theme items
-func getActiveThemeItems() []string {
+func getActiveThemeItems() []Item {
 	fmt.Printf("DEBUG: Getting active theme items...\n")
 	fmt.Printf("DEBUG: ActiveThemeID: %s\n", db.ActiveThemeID)
 	fmt.Printf("DEBUG: Number of themes: %d\n", len(db.Themes))
 
 	if db.ActiveThemeID == "" {
 		fmt.Printf("DEBUG: No active theme ID set\n")
-		return []string{} // Return empty slice instead of fallback
+		return []Item{} // Return empty slice instead of fallback
 	}
 
 	for _, theme := range db.Themes {
@@ -281,18 +312,18 @@ func getActiveThemeItems() []string {
 	}
 
 	fmt.Printf("DEBUG: Active theme not found\n")
-	return []string{} // Return empty slice instead of fallback
+	return []Item{} // Return empty slice instead of fallback
 }
 
 // Get all unique items from all themes
-func getAllThemeItems() []string {
+func getAllThemeItems() []Item {
 	itemSet := make(map[string]bool)
-	var allItems []string
+	var allItems []Item
 
 	for _, theme := range db.Themes {
 		for _, item := range theme.Items {
-			if !itemSet[item] {
-				itemSet[item] = true
+			if !itemSet[item.ID] {
+				itemSet[item.ID] = true
 				allItems = append(allItems, item)
 			}
 		}

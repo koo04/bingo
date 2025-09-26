@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "id": "f9974f84-b58e-46df-8f82-d847e17d3648",
+      "discord_id": "92030047161970688",
+      "username": "koothegreat",
+      "avatar": "55376796774be6fce7369f466155da10",
+      "created_at": "2025-09-25T22:06:21.4811237-04:00",
+      "is_admin": true
+    }
+  ],
+  "bingo_cards": [],
+  "admin_discord_ids": ["92030047161970688"],
+  "global_marked_items": [],
+  "themes": null,
+  "active_theme_id": ""
+}

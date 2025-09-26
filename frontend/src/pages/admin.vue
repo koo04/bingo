@@ -10,7 +10,7 @@
         
         <div v-if="isAdmin">
           <!-- Theme Management -->
-          <ThemeManager />
+          <ThemeManager :themes="themes"/>
 
           <!-- Bingo Items Control -->
           <v-card class="mb-6">
@@ -139,12 +139,12 @@ const loadAdminData = async () => {
   if (!isAdmin.value) return
   
   try {
-    const themes = await store.fetchThemes()
-    themes.value = themes
+    const themesResponse = await store.fetchThemes()
+    themes.value = themesResponse
 
-    const itemsResponse = await store.apiCall('/api/admin/items')
+    const itemsResponse = await store.fetchThemeItems()
     markedItems.value = itemsResponse.marked_items
-    allItems.value = itemsResponse.all_items
+    allItems.value = itemsResponse.items
 
     const cardsResponse = await store.apiCall('/api/admin/cards')
     playerCards.value = cardsResponse.cards

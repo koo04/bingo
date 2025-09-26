@@ -212,8 +212,7 @@ export const useAppStore = defineStore('app', {
         console.log('Theme changed via WebSocket:', data)
         this.activeThemeId = data.item // The item field contains the new theme ID
         this.showSnackbar('Admin changed the active theme. You may need to generate a new card.', 'info')
-        // Don't automatically refresh themes as it might cause unnecessary rerenders
-        // this.fetchThemes()
+        this.fetchThemeItems()
       })
 
       websocketService.on('theme_updated', (data) => {
@@ -360,6 +359,7 @@ export const useAppStore = defineStore('app', {
         const response = await axios.get(`${API_BASE_URL}/api/themes`)
         this.themes = response.data.themes || []
         this.activeThemeId = response.data.active_theme_id
+        return this.themes
       } catch (error) {
         console.error('Failed to fetch themes:', error)
         this.themes = []
@@ -571,6 +571,21 @@ export const useAppStore = defineStore('app', {
         this.showSnackbar(`Theme marked as complete!`, 'success')
       } catch (error) {
         this.showSnackbar('Failed to update theme status', 'error')
+        throw error
+      }
+    },
+
+    async fetchThemeItems() {
+      if (!this.activeThemeId) {
+        console.warn('No active theme set, skipping fetchThemeItems')
+        return
+      }
+
+      try {
+        const response = await this.apiCall(`/api/themes/${this.activeThemeId}/items`)
+        return response
+      } catch (error) {
+        console.error('Failed to fetch theme items:', error)
         throw error
       }
     }
