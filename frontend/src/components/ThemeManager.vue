@@ -97,6 +97,7 @@
                     <v-btn
                       size="small"
                       :color="theme.is_complete ? 'warning' : 'success'"
+                      class="ml-2"
                       @click="toggleThemeComplete(theme)"
                     >
                       <v-icon left size="small">
@@ -107,6 +108,7 @@
                     
                     <v-btn
                       v-if="!theme.is_complete && theme.id !== store.activeThemeId"
+                      class="ml-2"
                       size="small"
                       color="error"
                       @click="confirmDeleteTheme(theme)"
@@ -120,9 +122,9 @@
                         <v-btn
                           v-bind="props"
                           size="small"
+                          class="ml-2"
                           color="error"
                           disabled
-                          variant="outlined"
                         >
                           <v-icon left size="small">mdi-delete</v-icon>
                           Delete

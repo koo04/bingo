@@ -42,7 +42,9 @@ var (
 )
 
 func main() {
-	loadDatabase()
+	if err := loadDatabase(); err != nil {
+		log.Fatal("Error loading database:", err)
+	}
 
 	fmt.Printf("discord client id: %s\n", discordOAuth.ClientID)
 
@@ -58,29 +60,30 @@ func main() {
 	}))
 
 	// Routes
+
 	e.GET("/auth/discord", handleDiscordAuth)
 	e.POST("/auth/discord/exchange", handleAuthCodeExchange)
-	e.GET("/api/user", getCurrentUser, authMiddleware)
-	e.GET("/api/bingo/new", generateNewBingoCard, authMiddleware)
-	e.GET("/api/bingo/cards", getUserBingoCards, authMiddleware)
-	e.POST("/api/bingo/mark", markBingoItem, authMiddleware)
+
+	apiRoutes := e.Group("/api")
+	apiRoutes.GET("/user", getCurrentUser, authMiddleware)
+	apiRoutes.GET("/users", getAllUsers, authMiddleware)
+	apiRoutes.GET("/themes", getThemes, authMiddleware)
+	apiRoutes.GET("/themes/:id/items", getThemeItemsRequest, authMiddleware)
+	apiRoutes.GET("/themes/:id/cards/mine", getMyBingoCard, authMiddleware)
 
 	// Admin routes
-	e.GET("/api/admin/check", checkAdminAccess, authMiddleware)
-	e.GET("/api/admin/items", getGlobalMarkedItems, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/items/mark", markItem, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/items/unmark", unmarkGlobalItem, authMiddleware, adminMiddleware)
-	e.GET("/api/admin/cards", getAllBingoCards, authMiddleware, adminMiddleware)
+	adminRoutes := apiRoutes.Group("/admin", authMiddleware, adminMiddleware)
 
-	// Theme routes
-	e.GET("/api/themes", getThemes, authMiddleware)
-	e.GET("/api/themes/:id/items", getThemeItemsRequest, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/themes/:themeId/items/:itemId/mark", markItem, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/themes", createTheme, authMiddleware, adminMiddleware)
-	e.PUT("/api/admin/themes/:id", updateTheme, authMiddleware, adminMiddleware)
-	e.DELETE("/api/admin/themes/:id", deleteTheme, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/themes/:id/complete", markThemeComplete, authMiddleware, adminMiddleware)
-	e.POST("/api/admin/themes/active", setActiveTheme, authMiddleware, adminMiddleware)
+	adminRoutes.GET("/check", checkAdminAccess)
+
+	// admin theme management
+	adminRoutes.POST("/themes/:themeId/items/:itemId/toggle", toggleItem)
+	adminRoutes.POST("/themes", createTheme)
+	adminRoutes.PUT("/themes/:id", updateTheme)
+	adminRoutes.DELETE("/themes/:id", deleteTheme)
+	adminRoutes.GET("/themes/:id/cards", getAllBingoCards)
+	adminRoutes.POST("/themes/:id/complete", markThemeComplete)
+	adminRoutes.POST("/themes/active", setActiveTheme)
 
 	// WebSocket endpoint
 	e.GET("/ws", handleWebSocket)
@@ -94,61 +97,95 @@ func main() {
 	e.Logger.Fatal(e.Start(":" + port))
 }
 
-func loadDatabase() {
+func getAllUsers(c echo.Context) error {
+	return c.JSON(http.StatusOK, db.Users)
+}
+
+func getMyBingoCard(c echo.Context) error {
+	user := c.Get("user").(*User)
+	themeID := c.Param("id")
+
+	// not found, generate a new one
+	theme, found := getThemeByID(themeID)
+	if !found {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Theme not found",
+		})
+	}
+
+	if card, ok := theme.Cards[user.ID]; ok {
+		return c.JSON(http.StatusOK, card)
+	}
+
+	card, err := theme.NewBingoCard(user)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	if err := saveDatabase(); err != nil {
+		c.Logger().Error("Error saving database:", err)
+	}
+
+	return c.JSON(http.StatusOK, card)
+}
+
+func loadDatabase() error {
 	data, err := os.ReadFile("data/database.json")
 	if err != nil {
 		log.Println("Database file not found, creating new one")
 		db = Database{
-			Users:             []User{},
-			BingoCards:        []BingoCard{},
-			AdminDiscordIDs:   []string{}, // Add admin Discord IDs here manually or via environment
-			GlobalMarkedItems: []string{},
+			Users:           []*User{},
+			BingoCards:      []*BingoCard{},
+			AdminDiscordIDs: []string{}, // Add admin Discord IDs here manually or via environment
+			Themes:          []*Theme{},
+			ActiveThemeID:   "",
 		}
-		saveDatabase()
-		return
+		return saveDatabase()
 	}
 
 	if err := json.Unmarshal(data, &db); err != nil {
 		log.Fatal("Error parsing database:", err)
 	}
 
+	// No longer need to link card items to pointers since we store IDs directly
+
 	// Initialize fields if they don't exist
 	if db.AdminDiscordIDs == nil {
 		db.AdminDiscordIDs = []string{}
 	}
-	if db.GlobalMarkedItems == nil {
-		db.GlobalMarkedItems = []string{}
-	}
 
 	// Add admin IDs from environment variable
-	if envAdminIDs := os.Getenv("ADMIN_DISCORD_IDS"); envAdminIDs != "" {
-		envIDs := strings.Split(envAdminIDs, ",")
-		for _, id := range envIDs {
-			id = strings.TrimSpace(id)
-			if id != "" {
-				// Check if already exists
-				exists := false
-				for _, existingID := range db.AdminDiscordIDs {
-					if existingID == id {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					db.AdminDiscordIDs = append(db.AdminDiscordIDs, id)
-				}
-			}
-		}
-		saveDatabase()
+	envAdminIDs := os.Getenv("ADMIN_DISCORD_IDS")
+	if envAdminIDs == "" {
+		return nil
 	}
 
-	// Themes can be initialized manually via the admin endpoint if needed
+	envIDs := strings.SplitSeq(envAdminIDs, ",")
+	for id := range envIDs {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			// Check if already exists
+			exists := slices.Contains(db.AdminDiscordIDs, id)
+			if !exists {
+				db.AdminDiscordIDs = append(db.AdminDiscordIDs, id)
+			}
+		}
+	}
+
+	return saveDatabase()
 }
 
-func saveDatabase() {
-	os.MkdirAll("data", 0755)
-	data, _ := json.MarshalIndent(db, "", "  ")
-	os.WriteFile("data/database.json", data, 0644)
+func saveDatabase() error {
+	if err := os.MkdirAll("data", 0755); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(db, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile("data/database.json", data, 0644)
 }
 
 func authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -173,7 +210,7 @@ func authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		var user *User
 		for i := range db.Users {
 			if db.Users[i].ID == userID {
-				user = &db.Users[i]
+				user = db.Users[i]
 				break
 			}
 		}
@@ -185,32 +222,6 @@ func authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("user", user)
 		return next(c)
 	}
-}
-
-func checkBingo(marked [][]bool) bool {
-	// Check rows
-	for i := 0; i < 5; i++ {
-		if marked[i][0] && marked[i][1] && marked[i][2] && marked[i][3] && marked[i][4] {
-			return true
-		}
-	}
-
-	// Check columns
-	for j := 0; j < 5; j++ {
-		if marked[0][j] && marked[1][j] && marked[2][j] && marked[3][j] && marked[4][j] {
-			return true
-		}
-	}
-
-	// Check diagonals
-	if marked[0][0] && marked[1][1] && marked[2][2] && marked[3][3] && marked[4][4] {
-		return true
-	}
-	if marked[0][4] && marked[1][3] && marked[2][2] && marked[3][1] && marked[4][0] {
-		return true
-	}
-
-	return false
 }
 
 // Admin middleware
@@ -235,112 +246,81 @@ func checkAdminAccess(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]bool{"is_admin": isAdmin})
 }
 
-// Get globally marked items
-func getGlobalMarkedItems(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]any{
-		"marked_items": db.GlobalMarkedItems,
-		"all_items":    getAllThemeItems(),
-	})
-}
-
-// Mark item
-func markItem(c echo.Context) error {
+// Toggle item
+func toggleItem(c echo.Context) error {
 	var req struct {
-		ThemeID string `json:"theme_id"`
-		ItemId  string `json:"item_id"`
+		ThemeID string `json:"theme_id" param:"themeId"`
+		ItemId  string `json:"item_id" param:"itemId"`
 	}
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
-	// Check if item exists in theme items
-	themeItems := getThemeItems(req.ThemeID)
-
-	for _, item := range themeItems {
-		if item.ID == req.ItemId {
-			goto Found
-		}
-	}
-	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item not found"})
-Found:
-
-	// Check if already marked
-	if slices.Contains(db.GlobalMarkedItems, req.ItemId) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item already marked"})
+	theme, found := getThemeByID(req.ThemeID)
+	if !found {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Theme not found"})
 	}
 
-	db.GlobalMarkedItems = append(db.GlobalMarkedItems, req.ItemId)
-
-	// Mark this item on all player cards that contain it
-	for i := range db.BingoCards {
-		card := &db.BingoCards[i]
-		for row := range 5 {
-			for col := range 5 {
-				if card.Items[row][col] == req.ItemId {
-					card.MarkedItems[row][col] = true
-					// Check if this creates a bingo
-					if checkBingo(card.MarkedItems) {
-						card.IsWinner = true
-					}
-				}
-			}
-		}
+	item, found := theme.GetItem(req.ItemId)
+	if !found {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item not found"})
 	}
 
-	saveDatabase()
+	item.Marked = !item.Marked
+
+	winners := checkForWinners(theme)
+	if len(winners) > 0 {
+		// Broadcast winner
+		broadcastUpdate("winners", map[string]any{
+			"cards": winners,
+		})
+	}
+
+	if err := saveDatabase(); err != nil {
+		c.Logger().Error("Error saving database:", err)
+	}
 
 	// Broadcast to all WebSocket connections
-	broadcastUpdate("item_marked", req.ItemId)
+	broadcastUpdate("item_updated", item)
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "marked"})
 }
 
-// Unmark global item
-func unmarkGlobalItem(c echo.Context) error {
-	var req struct {
-		Item string `json:"item"`
-	}
-
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-	}
-
-	// Find and remove item
-	for i, markedItem := range db.GlobalMarkedItems {
-		if markedItem == req.Item {
-			db.GlobalMarkedItems = append(db.GlobalMarkedItems[:i], db.GlobalMarkedItems[i+1:]...)
-
-			// Unmark this item on all player cards that contain it
-			for j := range db.BingoCards {
-				card := &db.BingoCards[j]
-				for row := 0; row < 5; row++ {
-					for col := 0; col < 5; col++ {
-						if card.Items[row][col] == req.Item {
-							card.MarkedItems[row][col] = false
-							// Re-check if this card is still a winner
-							card.IsWinner = checkBingo(card.MarkedItems)
-						}
-					}
-				}
-			}
-
-			saveDatabase()
-
-			// Broadcast to all WebSocket connections
-			broadcastUpdate("item_unmarked", req.Item)
-
-			return c.JSON(http.StatusOK, map[string]string{"status": "unmarked"})
+func checkForWinners(theme *Theme) []*BingoCard {
+	var winners []*BingoCard
+	// Check all cards for winners
+	for _, card := range theme.Cards {
+		card.checkBingo(theme)
+		if card.IsWinner {
+			winners = append(winners, card)
 		}
 	}
-
-	return c.JSON(http.StatusBadRequest, map[string]string{"error": "Item not found in marked items"})
+	return winners
 }
 
 // Get all bingo cards
 func getAllBingoCards(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"cards": db.BingoCards,
+	type request struct {
+		ThemeID string `json:"theme_id" param:"id"`
+	}
+
+	var req request
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+
+	if req.ThemeID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Theme ID is required"})
+	}
+
+	theme, found := getThemeByID(req.ThemeID)
+	if !found {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Theme not found"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"cards": theme.Cards,
 		"users": db.Users,
 	})
 }
@@ -363,12 +343,6 @@ func handleWebSocket(c echo.Context) error {
 		connMutex.Unlock()
 	}()
 
-	// Send current state
-	ws.WriteJSON(map[string]any{
-		"type":         "initial_state",
-		"marked_items": db.GlobalMarkedItems,
-	})
-
 	// Keep connection alive
 	for {
 		_, _, err := ws.ReadMessage()
@@ -386,9 +360,8 @@ func broadcastUpdate(eventType string, item any) {
 	defer connMutex.RUnlock()
 
 	message := map[string]any{
-		"type":  eventType,
-		"item":  item,
-		"cards": db.BingoCards, // Send updated cards
+		"type": eventType,
+		"data": item,
 	}
 
 	for conn := range connections {

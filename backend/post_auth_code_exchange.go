@@ -65,13 +65,13 @@ func handleAuthCodeExchange(c echo.Context) error {
 	var user *User
 	for i := range db.Users {
 		if db.Users[i].DiscordID == discordUser.ID {
-			user = &db.Users[i]
+			user = db.Users[i]
 			break
 		}
 	}
 
 	if user == nil {
-		newUser := User{
+		newUser := &User{
 			ID:        uuid.New().String(),
 			DiscordID: discordUser.ID,
 			Username:  discordUser.Username,
@@ -79,8 +79,10 @@ func handleAuthCodeExchange(c echo.Context) error {
 			CreatedAt: time.Now(),
 		}
 		db.Users = append(db.Users, newUser)
-		user = &db.Users[len(db.Users)-1]
-		saveDatabase()
+		user = db.Users[len(db.Users)-1]
+		if err := saveDatabase(); err != nil {
+			c.Logger().Error("Failed to save database:", err)
+		}
 	}
 
 	// Generate JWT token

@@ -1,37 +1,42 @@
 <template>
   <v-row justify="center">
     <v-col cols="12">
-      <v-card>
-        <v-card-text class="pa-0">
-          <div class="bingo-grid">
+      <v-tooltip :text="user ? user.username : ''" location="top">
+        <template v-slot:activator="{ props }">
+          <v-card v-bind="props">
+            <v-card-text class="pa-0">
+              <div class="bingo-grid">
             <div
-              v-for="(row, rowIndex) in currentCard.items"
+              v-for="(row, rowIndex) in card.items"
               :key="rowIndex"
               class="bingo-row"
             >
               <div
-                v-for="(item) in row"
-                :key="item"
+                v-for="(item, itemIndex) in row"
+                :key="itemIndex"
                 class="bingo-cell"
                 :class="{
                   'marked': getItemById(item)?.marked
                 }"
               >
-                <div class="bingo-cell-content">
-                  {{ getItemById(item)?.name || 'Unknown Item' }}
-                </div>
               </div>
             </div>
-          </div>
-        </v-card-text>
-      </v-card>
+              </div>
+            </v-card-text>
+          </v-card>
+        </template>
+      </v-tooltip>
     </v-col>
   </v-row>
 </template>
 
 <script setup>
 const props = defineProps({
-  currentCard: {
+  card: {
+    type: Object,
+    required: true
+  },
+  user: {
     type: Object,
     required: true
   },
@@ -42,7 +47,7 @@ const props = defineProps({
 })
 
 function getItemById(itemId) {
-  return props.items.find(item => item.id === itemId) || null
+  return props.items?.find(item => item.id === itemId) || null
 }
 
 </script>
@@ -68,7 +73,7 @@ function getItemById(itemId) {
   aspect-ratio: 1;
   background: rgb(88, 88, 88);
   transition: all 0.2s ease;
-  min-height: 80px;
+  min-height: 10px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -10,10 +10,9 @@ export const useAppStore = defineStore('app', {
     // Authentication
     token: null,
     user: null,
+    users: [],
 
     // Bingo game
-    bingoCards: [],
-    currentCard: null,
     loading: false,
     error: null,
     snackbar: {
@@ -49,6 +48,21 @@ export const useAppStore = defineStore('app', {
       if (state.isServerConnected) return 'connected'
       return 'disconnected'
     },
+    currentCard: (state) => {
+      if (state.activeThemeId) {
+        return state.themes.find(t => t.id === state.activeThemeId)?.cards[state.user.id] || null
+      }
+    },
+    getUser: (state) => (userId) => state.users.find(user => user.id === userId) || null,
+    getItemById: (state) => (itemId) => {
+      if (state.activeThemeId) {
+        const theme = state.themes.find(t => t.id === state.activeThemeId)
+        if (theme) {
+          return theme.items.find(item => item.id === itemId) || null
+        }
+      }
+      return null
+    },
   },
 
   actions: {
@@ -79,6 +93,17 @@ export const useAppStore = defineStore('app', {
         }
       } else {
         console.log('No token found in localStorage')
+      }
+    },
+
+    async fetchUsers() {
+      try {
+        const response = await this.apiCall('/api/users')
+        this.users = response || []
+        console.log('Fetched', this.users.length, 'users')
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+        this.users = []
       }
     },
 
@@ -319,36 +344,6 @@ export const useAppStore = defineStore('app', {
       }
     },
 
-    async markBingoItem(row, col) {
-      if (!this.currentCard) return
-
-      try {
-        const response = await axios.post(`${API_BASE_URL}/api/bingo/mark`, {
-          card_id: this.currentCard.id,
-          row,
-          col
-        })
-
-        this.currentCard = response.data
-
-        // Update the card in the cards list
-        const cardIndex = this.bingoCards.findIndex(card => card.id === this.currentCard.id)
-        if (cardIndex !== -1) {
-          this.bingoCards[cardIndex] = response.data
-        }
-
-        return response.data
-      } catch (error) {
-        this.error = error.response?.data?.error || 'Failed to mark bingo item'
-        console.error('Failed to mark bingo item:', error)
-        throw error
-      }
-    },
-
-    setCurrentCard(card) {
-      this.currentCard = card
-    },
-
     clearError() {
       this.error = null
     },
@@ -389,6 +384,7 @@ export const useAppStore = defineStore('app', {
 
     async createTheme(themeData) {
       try {
+        console.log('Creating theme with data:', themeData)
         const response = await axios.post(`${API_BASE_URL}/api/admin/themes`, themeData)
         this.themes.push(response.data)
         this.showSnackbar('Theme created successfully', 'success')
@@ -588,6 +584,45 @@ export const useAppStore = defineStore('app', {
         console.error('Failed to fetch theme items:', error)
         throw error
       }
-    }
+    },
+
+    updateItem(item) {
+      if (this.activeThemeId) {
+        const theme = this.themes.find(t => t.id === this.activeThemeId)
+        if (theme) {
+          const itemIndex = theme.items.findIndex(i => i.id === item.id)
+          if (itemIndex !== -1) {
+            theme.items[itemIndex] = item
+          } else {
+            theme.items.push(item)
+          }
+        }
+
+        for (let theme of this.themes) {
+          for (let card of Object.values(theme.cards)) {
+            for (let row of card.items) {
+              const cardItemIndex = row.findIndex(i => i.id === item.id)
+              if (cardItemIndex !== -1) {
+                row[cardItemIndex] = item.id
+              }
+            }
+          }
+        }
+      }
+    },
+
+    updateCard(card) {
+      if (this.activeThemeId) {
+        const theme = this.themes.find(t => t.id === this.activeThemeId)
+        if (theme) {
+          theme.cards[card.user_id] = card
+        }
+
+        // If it's the current user's card, update currentCard
+        if (this.user && card.user_id === this.user.id) {
+          this.currentCard = card
+        }
+      }
+    },
   }
 })

@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
+	"math/rand"
 	"net/http"
 	"slices"
 	"time"
@@ -11,17 +13,84 @@ import (
 )
 
 type Theme struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Items       []Item    `json:"items"`
-	IsComplete  bool      `json:"is_complete"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	Items       []*Item               `json:"items"`
+	IsComplete  bool                  `json:"is_complete"`
+	Cards       map[string]*BingoCard `json:"cards"`
+	CreatedAt   time.Time             `json:"created_at"`
 }
 
 type Item struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Marked bool   `json:"marked"`
+}
+
+// Get theme by ID
+func getThemeByID(themeID string) (*Theme, bool) {
+	for _, theme := range db.Themes {
+		if theme.ID == themeID {
+			return theme, true
+		}
+	}
+	return nil, false
+}
+
+func (t *Theme) GetItem(itemID string) (*Item, bool) {
+	for _, item := range t.Items {
+		if item.ID == itemID {
+			return item, true
+		}
+	}
+	return nil, false
+}
+
+func (t *Theme) NewBingoCard(user *User) (*BingoCard, error) {
+	if t.IsComplete {
+		return nil, fmt.Errorf("cannot generate card from a completed theme")
+	}
+
+	if len(t.Items) < 25 {
+		return nil, fmt.Errorf("theme has insufficient items: need at least 25, have %d", len(t.Items))
+	}
+
+	// Create a new bingo card
+	card := &BingoCard{
+		ID:        uuid.New().String(),
+		UserID:    user.ID,
+		ThemeID:   t.ID,
+		Items:     make([][]string, 5),
+		CreatedAt: time.Now(),
+		IsWinner:  false,
+	}
+
+	// Shuffle and select 25 items
+	shuffled := make([]*Item, len(t.Items))
+	copy(shuffled, t.Items)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+	selected := shuffled[:25]
+
+	// Fill the 5x5 grid
+	for i := range card.Items {
+		card.Items[i] = make([]string, 5)
+		for j := range card.Items[i] {
+			card.Items[i][j] = selected[i*5+j].ID
+		}
+	}
+
+	// Free space in the middle
+	card.Items[2][2] = "FREE_SPACE"
+
+	if t.Cards == nil {
+		t.Cards = make(map[string]*BingoCard)
+	}
+	t.Cards[user.ID] = card
+
+	return card, saveDatabase()
 }
 
 // Get all themes
@@ -49,7 +118,7 @@ func setActiveTheme(c echo.Context) error {
 
 	if request.ThemeID == "" {
 		db.ActiveThemeID = ""
-		saveDatabase()
+		_ = saveDatabase()
 		broadcastUpdate("theme_changed", db.ActiveThemeID)
 		return c.JSON(http.StatusOK, map[string]any{
 			"message":         "Active theme cleared",
@@ -61,7 +130,7 @@ func setActiveTheme(c echo.Context) error {
 	var selectedTheme *Theme
 	for _, theme := range db.Themes {
 		if theme.ID == request.ThemeID {
-			selectedTheme = &theme
+			selectedTheme = theme
 			break
 		}
 	}
@@ -94,12 +163,13 @@ func createTheme(c echo.Context) error {
 	}
 
 	var request struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Items       []Item `json:"items"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Items       []string `json:"items"`
 	}
 
 	if err := c.Bind(&request); err != nil {
+		slog.Error("Failed to bind createTheme request", "error", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
@@ -107,11 +177,20 @@ func createTheme(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Theme must have at least 25 items"})
 	}
 
-	theme := Theme{
+	items := make([]*Item, len(request.Items))
+	for i, itemName := range request.Items {
+		items[i] = &Item{
+			ID:   uuid.New().String(),
+			Name: itemName,
+		}
+	}
+
+	theme := &Theme{
 		ID:          uuid.New().String(),
 		Name:        request.Name,
 		Description: request.Description,
-		Items:       request.Items,
+		Items:       items,
+		Cards:       make(map[string]*BingoCard),
 		CreatedAt:   time.Now(),
 	}
 
@@ -133,10 +212,10 @@ func updateTheme(c echo.Context) error {
 	themeID := c.Param("id")
 
 	var request struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Items       []Item `json:"items"`
-		IsComplete  *bool  `json:"is_complete,omitempty"` // Pointer to allow null/undefined values
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		Items       []*Item `json:"items"`
+		IsComplete  *bool   `json:"is_complete,omitempty"` // Pointer to allow null/undefined values
 	}
 
 	if err := c.Bind(&request); err != nil {
@@ -209,7 +288,7 @@ func deleteTheme(c echo.Context) error {
 	}
 
 	// Remove all cards associated with the deleted theme
-	var remainingCards []BingoCard
+	var remainingCards []*BingoCard
 	for _, card := range db.BingoCards {
 		if card.ThemeID != themeID {
 			remainingCards = append(remainingCards, card)
@@ -270,64 +349,13 @@ func markThemeComplete(c echo.Context) error {
 func getThemeItemsRequest(c echo.Context) error {
 	themeID := c.Param("id")
 
-	// Find the theme
-	for _, theme := range db.Themes {
-		if theme.ID == themeID {
-			return c.JSON(http.StatusOK, map[string]any{
-				"items":        theme.Items,
-				"marked_items": db.GlobalMarkedItems,
-			})
-		}
+	theme, found := getThemeByID(themeID)
+
+	if found {
+		return c.JSON(http.StatusOK, map[string]any{
+			"items": theme.Items,
+		})
 	}
 
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "Theme not found"})
-}
-
-func getThemeItems(themeId string) []Item {
-	for _, theme := range db.Themes {
-		if theme.ID == themeId {
-			return theme.Items
-		}
-	}
-
-	return []Item{}
-}
-
-// Get active theme items
-func getActiveThemeItems() []Item {
-	fmt.Printf("DEBUG: Getting active theme items...\n")
-	fmt.Printf("DEBUG: ActiveThemeID: %s\n", db.ActiveThemeID)
-	fmt.Printf("DEBUG: Number of themes: %d\n", len(db.Themes))
-
-	if db.ActiveThemeID == "" {
-		fmt.Printf("DEBUG: No active theme ID set\n")
-		return []Item{} // Return empty slice instead of fallback
-	}
-
-	for _, theme := range db.Themes {
-		if theme.ID == db.ActiveThemeID {
-			fmt.Printf("DEBUG: Found active theme '%s' with %d items\n", theme.Name, len(theme.Items))
-			return theme.Items
-		}
-	}
-
-	fmt.Printf("DEBUG: Active theme not found\n")
-	return []Item{} // Return empty slice instead of fallback
-}
-
-// Get all unique items from all themes
-func getAllThemeItems() []Item {
-	itemSet := make(map[string]bool)
-	var allItems []Item
-
-	for _, theme := range db.Themes {
-		for _, item := range theme.Items {
-			if !itemSet[item.ID] {
-				itemSet[item.ID] = true
-				allItems = append(allItems, item)
-			}
-		}
-	}
-
-	return allItems
 }

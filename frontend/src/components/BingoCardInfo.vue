@@ -18,14 +18,6 @@
                 {{ currentCard.is_winner ? 'Winner!' : 'In Progress' }}
               </v-chip>
             </v-col>
-            <v-col cols="6" sm="3">
-              <div class="text-caption">Total Cards</div>
-              <div>{{ totalCards }}</div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="text-caption">Wins</div>
-              <div>{{ winCount }}</div>
-            </v-col>
           </v-row>
         </v-card-text>
       </v-card>
@@ -37,14 +29,6 @@
 const props = defineProps({
   currentCard: {
     type: Object,
-    required: true
-  },
-  totalCards: {
-    type: Number,
-    required: true
-  },
-  winCount: {
-    type: Number,
     required: true
   }
 })

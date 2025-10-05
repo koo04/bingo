@@ -1,12 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
 	"net/http"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -27,63 +23,17 @@ func generateNewBingoCard(c echo.Context) error {
 		})
 	}
 
-	themeItems := getActiveThemeItems()
-	if len(themeItems) < 25 {
+	theme, found := getThemeByID(db.ActiveThemeID)
+	if !found {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": fmt.Sprintf("Active theme only has %d items (need at least 25). Please contact an administrator to add more items to the theme.", len(themeItems)),
+			"error": "Active theme not found. Please contact an administrator to set a valid active theme.",
 		})
 	}
 
-	card, err := newBingoCard(user)
+	card, err := theme.NewBingoCard(user)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, card)
-}
-
-func newBingoCard(user *User) (BingoCard, error) {
-	// Get items from active theme
-	themeItems := getActiveThemeItems()
-
-	if len(themeItems) < 25 {
-		return BingoCard{}, fmt.Errorf("insufficient items: need 25, have %d", len(themeItems))
-	}
-
-	// Shuffle and select 25 items
-	shuffled := make([]Item, len(themeItems))
-	copy(shuffled, themeItems)
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-
-	// Create 5x5 grid
-	items := make([][]string, 5)
-	markedItems := make([][]bool, 5)
-	for i := range items {
-		items[i] = make([]string, 5)
-		markedItems[i] = make([]bool, 5)
-		for j := range items[i] {
-			items[i][j] = shuffled[i*5+j].Name
-		}
-	}
-
-	// Free space in the middle
-	items[2][2] = "FREE SPACE"
-	markedItems[2][2] = true
-
-	card := BingoCard{
-		ID:          uuid.New().String(),
-		UserID:      user.ID,
-		ThemeID:     db.ActiveThemeID,
-		Items:       items,
-		MarkedItems: markedItems,
-		CreatedAt:   time.Now(),
-		IsWinner:    false,
-	}
-
-	db.BingoCards = append(db.BingoCards, card)
-	saveDatabase()
-
-	return card, nil
 }

@@ -51,10 +51,7 @@
       <v-container v-else>
         <v-row>
           <v-col>
-            <v-sheet
-              min-height="70vh"
-              rounded="lg"
-            >
+            <v-sheet>
               <router-view />
             </v-sheet>
           </v-col>
