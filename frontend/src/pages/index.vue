@@ -1,10 +1,10 @@
 <template>
   <v-container fluid class="fill-height d-flex align-center justify-center">
-    <div v-if="currentCard" class="d-flex flex-column align-center" style="max-width: 600px; width: 100%;">
+    <div v-if="currentCard" class="d-flex flex-column align-center">
       <!-- Theme Info -->
-      <ThemeInfo
+      <!-- <ThemeInfo
         :active-theme="store.themes.find(t => t.id === store.activeThemeId) || { name: 'Unknown Theme', description: '' }"
-        class="mb-4 w-100" />
+        class="mb-4 w-100" /> -->
 
       <!-- Bingo Grid -->
       
@@ -27,7 +27,7 @@
     <!-- No card message -->
     <v-card v-else class="text-center pa-8" style="max-width: 600px; width: 100%;">
       <v-card-text>
-        Generating card...
+        There is no bingo card theme selected yet!
       </v-card-text>
     </v-card>
   </v-container>
@@ -62,27 +62,6 @@ const otherUserCards = computed(() => {
 const items = computed(() => {
   return activeTheme.value?.items || []
 })
-
-const handleWebSocketMessage = (data) => {
-  switch (data.type) {
-    case 'item_updated':
-      if (data.data) {
-        store.updateItem(data.data)
-      }
-      break
-    case 'winners':
-      if (data.data) {
-        const cards = data.data.cards
-        for (const card of cards) {
-          store.updateCard(card)
-        }
-      }
-      break
-    default:
-      console.warn('Unknown WebSocket message type:', data.type)
-      break
-  }
-}
 
 onMounted(async () => {
   if (isInitialized.value) {
@@ -149,16 +128,20 @@ onMounted(async () => {
     }
   }
 
-  // Setup WebSocket
-  websocketService.connect()
-  websocketService.on('item_updated', handleWebSocketMessage)
-  websocketService.on('winners', handleWebSocketMessage)
+  if (currentCard.value == null && store.user?.id != null && activeTheme.value?.cards != null) {
+    console.log('No current card, generating new card for user', store.user.id)
+    try {
+      await store.fetchCard()
+      console.log('New card generated:', currentCard.value)
+    } catch (error) {
+      console.error('Error generating new card:', error)
+    }
+  }
 })
 
 onUnmounted(() => {
   console.log('Index page unmounted, disconnecting WebSocket')
   websocketService.disconnect()
-  websocketService.off('item_updated', handleWebSocketMessage)
   websocketService.off('winners', handleWebSocketMessage)
 })
 </script>

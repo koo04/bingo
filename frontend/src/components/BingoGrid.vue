@@ -18,7 +18,7 @@
                 }"
               >
                 <div class="bingo-cell-content">
-                  {{ getItemById(item)?.name || 'Unknown Item' }}
+                  {{ item !== "FREE_SPACE" ? getItemById(item)?.name : 'Free Space' }}
                 </div>
               </div>
             </div>
@@ -68,7 +68,7 @@ function getItemById(itemId) {
   aspect-ratio: 1;
   background: rgb(88, 88, 88);
   transition: all 0.2s ease;
-  min-height: 80px;
+  min-height: 110px;
   display: flex;
   align-items: center;
   justify-content: center;

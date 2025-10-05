@@ -28,7 +28,6 @@ export const useAppStore = defineStore('app', {
 
     // Server connectivity
     isServerConnected: false,
-    isCheckingConnection: false,
     connectionCheckInterval: null,
 
     // Internal state
@@ -43,11 +42,6 @@ export const useAppStore = defineStore('app', {
     activeTheme: (state) => state.themes.find(theme => theme.id === state.activeThemeId),
     hasActiveTheme: (state) => !!state.activeThemeId,
     isAppReady: (state) => state.isServerConnected && !!state.token,
-    connectionStatus: (state) => {
-      if (state.isCheckingConnection) return 'checking'
-      if (state.isServerConnected) return 'connected'
-      return 'disconnected'
-    },
     currentCard: (state) => {
       if (state.activeThemeId) {
         return state.themes.find(t => t.id === state.activeThemeId)?.cards[state.user.id] || null
@@ -208,35 +202,29 @@ export const useAppStore = defineStore('app', {
       console.log('Initializing WebSocket...')
       this.wsInitialized = true
 
-      websocketService.on('initial_state', (data) => {
-        console.log('WebSocket initial_state received')
-        this.globalMarkedItems = data.marked_items
-      })
-
-      websocketService.on('item_marked', (data) => {
-        console.log('WebSocket item_marked received:', data.item)
-        if (!this.globalMarkedItems.includes(data.item)) {
-          this.globalMarkedItems.push(data.item)
-        }
-        // Update bingo cards if provided
-        if (data.cards) {
-          this.updateBingoCards(data.cards)
+      websocketService.on('item_updated', (data) => {
+        console.log('WebSocket item_updated received:', data.item)
+        if (data.data) {
+          this.updateItem(data.data)
         }
       })
 
-      websocketService.on('item_unmarked', (data) => {
-        console.log('WebSocket item_unmarked received:', data.item)
-        this.globalMarkedItems = this.globalMarkedItems.filter(item => item !== data.item)
-        // Update bingo cards if provided
-        if (data.cards) {
-          this.updateBingoCards(data.cards)
+      websocketService.on('theme_created', (data) => {
+        console.log('WebSocket theme_created received:', data.item)
+        if (data.data) {
+          this.themes.push(data.data)
         }
       })
 
       websocketService.on('theme_changed', (data) => {
         console.log('Theme changed via WebSocket:', data)
         this.activeThemeId = data.item // The item field contains the new theme ID
-        this.showSnackbar('Admin changed the active theme. You may need to generate a new card.', 'info')
+        
+        if (this.activeTheme.cards.find(card => card.user_id === this.user.id)) {
+          this.currentCard = this.activeTheme.cards.find(card => card.user_id === this.user.id)
+        }
+        
+        this.showSnackbar('Admin changed the active theme!', 'info')
         this.fetchThemeItems()
       })
 
@@ -247,17 +235,19 @@ export const useAppStore = defineStore('app', {
           const themeIndex = this.themes.findIndex(theme => theme.id === data.item.id)
           if (themeIndex !== -1) {
             this.themes[themeIndex] = data.item
+            this.fetchCard()
             this.showSnackbar('Theme updated successfully', 'success')
           }
         }
       })
 
-      websocketService.on('theme_created', (data) => {
-        console.log('Theme created via WebSocket:', data)
-        // Add the new theme to the local themes array
-        if (data.item && data.item.id) {
-          this.themes.push(data.item)
-          this.showSnackbar(`New theme created: ${data.item.name}`, 'success')
+      websocketService.on('winners', (data) => {
+        console.log('Winners received via WebSocket:', data)
+        if (data.data) {
+          const cards = data.data.cards
+          for (const card of cards) {
+            store.updateCard(card)
+          }
         }
       })
 
@@ -288,23 +278,6 @@ export const useAppStore = defineStore('app', {
         if (updatedCurrentCard) {
           this.currentCard = updatedCurrentCard
         }
-      }
-    },
-
-    async generateNewBingoCard() {
-      try {
-        this.loading = true
-        this.error = null
-        const response = await axios.get(`${API_BASE_URL}/api/bingo/new`)
-        this.currentCard = response.data
-        await this.fetchBingoCards()
-        return response.data
-      } catch (error) {
-        this.error = error.response?.data?.error || 'Failed to generate bingo card'
-        console.error('Failed to generate bingo card:', error)
-        throw error
-      } finally {
-        this.loading = false
       }
     },
 
@@ -437,9 +410,6 @@ export const useAppStore = defineStore('app', {
 
     // Server connectivity methods
     async checkServerConnection() {
-      if (this.isCheckingConnection) return
-
-      this.isCheckingConnection = true
       try {
         console.log('Checking server connection...')
         const response = await axios.get(`${API_BASE_URL}/api/health`, {
@@ -474,8 +444,6 @@ export const useAppStore = defineStore('app', {
         }
 
         return false
-      } finally {
-        this.isCheckingConnection = false
       }
     },
 
@@ -582,6 +550,22 @@ export const useAppStore = defineStore('app', {
         return response
       } catch (error) {
         console.error('Failed to fetch theme items:', error)
+        throw error
+      }
+    },
+
+    async fetchCard() {
+      if (!this.activeThemeId || !this.user) {
+        console.warn('No active theme or user set, skipping fetchCard')
+        return
+      }
+
+      try {
+        const response = await this.apiCall(`/api/themes/${this.activeThemeId}/cards/mine`)
+        this.currentCard = response
+        return response
+      } catch (error) {
+        console.error('Failed to fetch bingo card:', error)
         throw error
       }
     },

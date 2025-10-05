@@ -36,7 +36,7 @@
       </v-container>
     </v-app-bar>
 
-    <v-main class="bg-grey-lighten-3">
+    <v-main>
       <!-- Loading State -->
       <v-container v-if="store.loading" class="fill-height">
         <v-row justify="center" align="center" class="fill-height">
@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 const store = useAppStore()
@@ -76,10 +76,15 @@ const visibleLinks = computed(() => {
   return links.filter(link => !link.adminOnly || (link.adminOnly && store.isAuthenticated))
 })
 
-onMounted(() => {
-  // Initialize WebSocket when the app loads
+onMounted(async () => {
+  // Initialize WebSocket if authenticated
   if (store.isAuthenticated) {
     store.initializeWebSocket()
   }
+})
+
+onUnmounted(() => {
+  // Clean up connection monitoring when app unmounts
+  store.stopConnectionMonitoring()
 })
 </script>

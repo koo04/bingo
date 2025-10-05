@@ -88,6 +88,7 @@
                       v-if="!theme.is_complete"
                       size="small"
                       color="info"
+                      class="ml-2"
                       @click="editTheme(theme)"
                     >
                       <v-icon left size="small">mdi-pencil</v-icon>

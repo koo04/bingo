@@ -22,7 +22,7 @@ func getCardByUserIdHandler(c echo.Context) error {
 		return c.JSON(http.StatusOK, card)
 	}
 
-	card, err := theme.NewBingoCard(user)
+	card, err := theme.NewCard(user)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}

@@ -37,7 +37,7 @@ func (t *Theme) GetItem(itemID string) (*Item, bool) {
 	return nil, false
 }
 
-func (t *Theme) NewBingoCard(user *User) (*Card, error) {
+func (t *Theme) NewCard(user *User) (*Card, error) {
 	if t.IsComplete {
 		return nil, fmt.Errorf("cannot generate card from a completed theme")
 	}
