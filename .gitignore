@@ -34,5 +34,5 @@ backend/main
 backend/bingo-backend
 
 # Database
-backend/data
+data/*.json
 frontend/yarn.lock
