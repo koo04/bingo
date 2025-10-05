@@ -9,11 +9,11 @@ import (
 )
 
 type Database struct {
-	Users           []*User      `json:"users"`
-	BingoCards      []*BingoCard `json:"bingo_cards"`
-	AdminDiscordIDs []string     `json:"admin_discord_ids"`
-	Themes          []*Theme     `json:"themes"`
-	ActiveThemeID   string       `json:"active_theme_id"`
+	Users           []*User  `json:"users"`
+	BingoCards      []*Card  `json:"bingo_cards"`
+	AdminDiscordIDs []string `json:"admin_discord_ids"`
+	Themes          []*Theme `json:"themes"`
+	ActiveThemeID   string   `json:"active_theme_id"`
 }
 
 func loadDatabase() error {
@@ -22,8 +22,8 @@ func loadDatabase() error {
 		log.Println("Database file not found, creating new one")
 		db = Database{
 			Users:           []*User{},
-			BingoCards:      []*BingoCard{},
-			AdminDiscordIDs: []string{}, // Add admin Discord IDs here manually or via environment
+			BingoCards:      []*Card{},
+			AdminDiscordIDs: []string{},
 			Themes:          []*Theme{},
 			ActiveThemeID:   "",
 		}
@@ -33,8 +33,6 @@ func loadDatabase() error {
 	if err := json.Unmarshal(data, &db); err != nil {
 		log.Fatal("Error parsing database:", err)
 	}
-
-	// No longer need to link card items to pointers since we store IDs directly
 
 	// Initialize fields if they don't exist
 	if db.AdminDiscordIDs == nil {

@@ -67,8 +67,8 @@ func main() {
 	e.Logger.Fatal(e.Start(":" + port))
 }
 
-func checkForWinners(theme *Theme) []*BingoCard {
-	var winners []*BingoCard
+func checkForWinners(theme *Theme) []*Card {
+	var winners []*Card
 	// Check all cards for winners
 	for _, card := range theme.Cards {
 		card.checkBingo(theme)

@@ -13,13 +13,13 @@ import (
 )
 
 type Theme struct {
-	ID          string                `json:"id"`
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	Items       []*Item               `json:"items"`
-	IsComplete  bool                  `json:"is_complete"`
-	Cards       map[string]*BingoCard `json:"cards"`
-	CreatedAt   time.Time             `json:"created_at"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Items       []*Item          `json:"items"`
+	IsComplete  bool             `json:"is_complete"`
+	Cards       map[string]*Card `json:"cards"`
+	CreatedAt   time.Time        `json:"created_at"`
 }
 
 // Get theme by ID
@@ -41,7 +41,7 @@ func (t *Theme) GetItem(itemID string) (*Item, bool) {
 	return nil, false
 }
 
-func (t *Theme) NewBingoCard(user *User) (*BingoCard, error) {
+func (t *Theme) NewBingoCard(user *User) (*Card, error) {
 	if t.IsComplete {
 		return nil, fmt.Errorf("cannot generate card from a completed theme")
 	}
@@ -51,7 +51,7 @@ func (t *Theme) NewBingoCard(user *User) (*BingoCard, error) {
 	}
 
 	// Create a new bingo card
-	card := &BingoCard{
+	card := &Card{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		ThemeID:   t.ID,
@@ -80,7 +80,7 @@ func (t *Theme) NewBingoCard(user *User) (*BingoCard, error) {
 	card.Items[2][2] = "FREE_SPACE"
 
 	if t.Cards == nil {
-		t.Cards = make(map[string]*BingoCard)
+		t.Cards = make(map[string]*Card)
 	}
 	t.Cards[user.ID] = card
 
@@ -184,7 +184,7 @@ func createTheme(c echo.Context) error {
 		Name:        request.Name,
 		Description: request.Description,
 		Items:       items,
-		Cards:       make(map[string]*BingoCard),
+		Cards:       make(map[string]*Card),
 		CreatedAt:   time.Now(),
 	}
 
@@ -282,7 +282,7 @@ func deleteTheme(c echo.Context) error {
 	}
 
 	// Remove all cards associated with the deleted theme
-	var remainingCards []*BingoCard
+	var remainingCards []*Card
 	for _, card := range db.BingoCards {
 		if card.ThemeID != themeID {
 			remainingCards = append(remainingCards, card)

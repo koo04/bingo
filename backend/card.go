@@ -2,7 +2,7 @@ package main
 
 import "time"
 
-type BingoCard struct {
+type Card struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"user_id"`
 	ThemeID   string     `json:"theme_id"`
@@ -11,34 +11,34 @@ type BingoCard struct {
 	IsWinner  bool       `json:"is_winner"`
 }
 
-func (b *BingoCard) checkBingo(theme *Theme) {
+func (c *Card) checkBingo(theme *Theme) {
 	const gridSize = 5
 
 	// Check rows
-	if b.hasWinningRow(gridSize, theme) {
-		b.IsWinner = true
+	if c.hasWinningRow(gridSize, theme) {
+		c.IsWinner = true
 		return
 	}
 
 	// Check columns
-	if b.hasWinningColumn(gridSize, theme) {
-		b.IsWinner = true
+	if c.hasWinningColumn(gridSize, theme) {
+		c.IsWinner = true
 		return
 	}
 
 	// Check diagonals
-	if b.hasWinningDiagonal(gridSize, theme) {
-		b.IsWinner = true
+	if c.hasWinningDiagonal(gridSize, theme) {
+		c.IsWinner = true
 		return
 	}
 
-	b.IsWinner = false
+	c.IsWinner = false
 }
 
 // hasWinningRow checks if any row has all items marked
-func (b *BingoCard) hasWinningRow(gridSize int, theme *Theme) bool {
+func (c *Card) hasWinningRow(gridSize int, theme *Theme) bool {
 	for row := range gridSize {
-		if b.isRowComplete(row, gridSize, theme) {
+		if c.isRowComplete(row, gridSize, theme) {
 			return true
 		}
 	}
@@ -46,9 +46,9 @@ func (b *BingoCard) hasWinningRow(gridSize int, theme *Theme) bool {
 }
 
 // hasWinningColumn checks if any column has all items marked
-func (b *BingoCard) hasWinningColumn(gridSize int, theme *Theme) bool {
+func (c *Card) hasWinningColumn(gridSize int, theme *Theme) bool {
 	for col := range gridSize {
-		if b.isColumnComplete(col, gridSize, theme) {
+		if c.isColumnComplete(col, gridSize, theme) {
 			return true
 		}
 	}
@@ -56,12 +56,12 @@ func (b *BingoCard) hasWinningColumn(gridSize int, theme *Theme) bool {
 }
 
 // hasWinningDiagonal checks if either diagonal has all items marked
-func (b *BingoCard) hasWinningDiagonal(gridSize int, theme *Theme) bool {
-	return b.isMainDiagonalComplete(gridSize, theme) || b.isAntiDiagonalComplete(gridSize, theme)
+func (c *Card) hasWinningDiagonal(gridSize int, theme *Theme) bool {
+	return c.isMainDiagonalComplete(gridSize, theme) || c.isAntiDiagonalComplete(gridSize, theme)
 }
 
 // isItemMarked checks if an item with the given ID is marked in the theme
-func (b *BingoCard) isItemMarked(itemID string, theme *Theme) bool {
+func (c *Card) isItemMarked(itemID string, theme *Theme) bool {
 	// Handle FREE_SPACE specially - it's always considered marked
 	if itemID == "FREE_SPACE" {
 		return true
@@ -76,9 +76,9 @@ func (b *BingoCard) isItemMarked(itemID string, theme *Theme) bool {
 }
 
 // isRowComplete checks if a specific row has all items marked
-func (b *BingoCard) isRowComplete(row, gridSize int, theme *Theme) bool {
+func (c *Card) isRowComplete(row, gridSize int, theme *Theme) bool {
 	for col := range gridSize {
-		if !b.isItemMarked(b.Items[row][col], theme) {
+		if !c.isItemMarked(c.Items[row][col], theme) {
 			return false
 		}
 	}
@@ -86,9 +86,9 @@ func (b *BingoCard) isRowComplete(row, gridSize int, theme *Theme) bool {
 }
 
 // isColumnComplete checks if a specific column has all items marked
-func (b *BingoCard) isColumnComplete(col, gridSize int, theme *Theme) bool {
+func (c *Card) isColumnComplete(col, gridSize int, theme *Theme) bool {
 	for row := range gridSize {
-		if !b.isItemMarked(b.Items[row][col], theme) {
+		if !c.isItemMarked(c.Items[row][col], theme) {
 			return false
 		}
 	}
@@ -96,9 +96,9 @@ func (b *BingoCard) isColumnComplete(col, gridSize int, theme *Theme) bool {
 }
 
 // isMainDiagonalComplete checks if the main diagonal (top-left to bottom-right) has all items marked
-func (b *BingoCard) isMainDiagonalComplete(gridSize int, theme *Theme) bool {
+func (c *Card) isMainDiagonalComplete(gridSize int, theme *Theme) bool {
 	for i := range gridSize {
-		if !b.isItemMarked(b.Items[i][i], theme) {
+		if !c.isItemMarked(c.Items[i][i], theme) {
 			return false
 		}
 	}
@@ -106,9 +106,9 @@ func (b *BingoCard) isMainDiagonalComplete(gridSize int, theme *Theme) bool {
 }
 
 // isAntiDiagonalComplete checks if the anti-diagonal (top-right to bottom-left) has all items marked
-func (b *BingoCard) isAntiDiagonalComplete(gridSize int, theme *Theme) bool {
+func (c *Card) isAntiDiagonalComplete(gridSize int, theme *Theme) bool {
 	for i := range gridSize {
-		if !b.isItemMarked(b.Items[i][gridSize-1-i], theme) {
+		if !c.isItemMarked(c.Items[i][gridSize-1-i], theme) {
 			return false
 		}
 	}
