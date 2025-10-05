@@ -24,7 +24,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: []string{os.Getenv("FRONTEND_URL")},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
@@ -61,6 +61,9 @@ func main() {
 	e.GET("/api/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	// Serve static files - this should be last to catch all non-API routes
+	e.GET("/*", staticHandler)
 
 	port := cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("Server starting on port %s", port)

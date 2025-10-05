@@ -9,11 +9,15 @@ frontend/.eslintrc*
 # Backend
 backend/main
 backend/bingo
+server.exe
+server
+backend/dist
 
 # local env files
 .env
 .env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Log files
 npm-debug.log*
