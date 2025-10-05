@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"slices"
 	"time"
@@ -20,12 +20,6 @@ type Theme struct {
 	IsComplete  bool                  `json:"is_complete"`
 	Cards       map[string]*BingoCard `json:"cards"`
 	CreatedAt   time.Time             `json:"created_at"`
-}
-
-type Item struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Marked bool   `json:"marked"`
 }
 
 // Get theme by ID

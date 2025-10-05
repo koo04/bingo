@@ -11,17 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type AuthCodeRequest struct {
-	Code  string `json:"code" validate:"required"`
-	State string `json:"state" validate:"required"`
-}
-
-type AuthResponse struct {
-	Token string `json:"token"`
-	User  User   `json:"user"`
-}
-
-func handleAuthCodeExchange(c echo.Context) error {
+func authCodeExchangeHandler(c echo.Context) error {
 	var req AuthCodeRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
