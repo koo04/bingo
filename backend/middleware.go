@@ -57,12 +57,3 @@ func adminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Admin access required"})
 	}
 }
-
-// Check admin access
-func checkAdminAccess(c echo.Context) error {
-	user := c.Get("user").(*User)
-
-	isAdmin := slices.Contains(db.AdminDiscordIDs, user.DiscordID)
-
-	return c.JSON(http.StatusOK, map[string]bool{"is_admin": isAdmin})
-}

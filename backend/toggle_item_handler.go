@@ -28,7 +28,7 @@ func toggleItemHandler(c echo.Context) error {
 
 	item.Marked = !item.Marked
 
-	winners := checkForWinners(theme)
+	winners := theme.checkForWinners()
 	if len(winners) > 0 {
 		// Broadcast winner
 		broadcastUpdate("winners", map[string]any{

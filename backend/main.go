@@ -37,23 +37,23 @@ func main() {
 	apiRoutes := e.Group("/api")
 	apiRoutes.GET("/user", getCurrentUser, authMiddleware)
 	apiRoutes.GET("/users", getAllUsersHandler, authMiddleware)
-	apiRoutes.GET("/themes", getThemes, authMiddleware)
-	apiRoutes.GET("/themes/:id/items", getThemeItemsRequest, authMiddleware)
+	apiRoutes.GET("/themes", getThemesHandler, authMiddleware)
+	apiRoutes.GET("/themes/:id/items", getThemeItemsHandler, authMiddleware)
 	apiRoutes.GET("/themes/:id/cards/mine", getCardByUserIdHandler, authMiddleware)
 
 	// Admin routes
 	adminRoutes := apiRoutes.Group("/admin", authMiddleware, adminMiddleware)
 
-	adminRoutes.GET("/check", checkAdminAccess)
+	adminRoutes.GET("/check", checkAdminAccessHandler)
 
 	// admin theme management
 	adminRoutes.POST("/themes/:themeId/items/:itemId/toggle", toggleItemHandler)
-	adminRoutes.POST("/themes", createTheme)
-	adminRoutes.PUT("/themes/:id", updateTheme)
-	adminRoutes.DELETE("/themes/:id", deleteTheme)
+	adminRoutes.POST("/themes", createThemeHandler)
+	adminRoutes.PUT("/themes/:id", updateThemeHandler)
+	adminRoutes.DELETE("/themes/:id", deleteThemeHandler)
 	adminRoutes.GET("/themes/:id/cards", getAllCardsHandler)
-	adminRoutes.POST("/themes/:id/complete", markThemeComplete)
-	adminRoutes.POST("/themes/active", setActiveTheme)
+	adminRoutes.POST("/themes/:id/complete", setThemeCompleteHandler)
+	adminRoutes.POST("/themes/active", setActiveThemeHandler)
 
 	// WebSocket endpoint
 	e.GET("/ws", webSocketHandler)
@@ -65,16 +65,4 @@ func main() {
 	port := cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("Server starting on port %s", port)
 	e.Logger.Fatal(e.Start(":" + port))
-}
-
-func checkForWinners(theme *Theme) []*Card {
-	var winners []*Card
-	// Check all cards for winners
-	for _, card := range theme.Cards {
-		card.checkBingo(theme)
-		if card.IsWinner {
-			winners = append(winners, card)
-		}
-	}
-	return winners
 }
