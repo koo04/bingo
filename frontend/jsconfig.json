@@ -5,6 +5,7 @@
     "module": "esnext",
     "baseUrl": "./",
     "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": [
         "src/*"
