@@ -138,7 +138,9 @@ func setActiveTheme(c echo.Context) error {
 	}
 
 	db.ActiveThemeID = request.ThemeID
-	saveDatabase()
+	if err := saveDatabase(); err != nil {
+		c.Logger().Error("Error saving database:", err)
+	}
 
 	// Broadcast theme change to all connected clients
 	broadcastUpdate("theme_changed", db.ActiveThemeID)
@@ -189,7 +191,9 @@ func createTheme(c echo.Context) error {
 	}
 
 	db.Themes = append(db.Themes, theme)
-	saveDatabase()
+	if err := saveDatabase(); err != nil {
+		c.Logger().Error("Error saving database:", err)
+	}
 
 	broadcastUpdate("theme_created", theme)
 
@@ -240,7 +244,10 @@ func updateTheme(c echo.Context) error {
 
 			broadcastUpdate("theme_updated", db.Themes[i])
 
-			saveDatabase()
+			if err := saveDatabase(); err != nil {
+				c.Logger().Error("Error saving database:", err)
+			}
+
 			return c.JSON(http.StatusOK, db.Themes[i])
 		}
 	}
@@ -255,7 +262,11 @@ func deleteTheme(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Admin access required"})
 	}
 
-	defer saveDatabase()
+	defer func() {
+		if err := saveDatabase(); err != nil {
+			c.Logger().Error("Error saving database:", err)
+		}
+	}()
 
 	themeID := c.Param("id")
 
@@ -321,7 +332,10 @@ func markThemeComplete(c echo.Context) error {
 			}
 
 			db.Themes[i].IsComplete = request.IsComplete
-			saveDatabase()
+
+			if err := saveDatabase(); err != nil {
+				c.Logger().Error("Error saving database:", err)
+			}
 
 			statusText := "incomplete"
 			if request.IsComplete {
